@@ -5,11 +5,11 @@ import com.facebook.LinkBench.Link;
 import com.facebook.LinkBench.Node;
 import com.facebook.LinkBench.Phase;
 import com.sparsity.dex.gdb.*;
+import com.sparsity.dex.gdb.Objects;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Properties;
+import java.util.*;
 
 /**
  *  Because of license reasons, singleton and one session only!
@@ -183,6 +183,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     public synchronized  boolean openDB(String dbname) {
         dex = new Dex(conf);
         try {
+            System.out.println("OpenDB");
             dbfilename = dbname + ".dex";
             db = dex.open(dbfilename, false);
 
@@ -195,6 +196,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
 
     public  synchronized   boolean closeDB() {
         try {
+            System.out.println("CloseDB");
             db.close();
             db.delete();
             dex.delete();
@@ -411,6 +413,20 @@ class DexLinkBenchDriverSingleton extends GraphStore {
         }
     }
 
+    class LinkTimestampComparatorDesc implements Comparator<Link> {
+        @Override
+        public int compare(Link o1, Link o2) {
+            if (o1.time > o2.time) {
+                return -1;
+            } else {
+                if (o1.time == o2.time) return 0;
+                return 1;
+            }
+        }
+    }
+
+    private QuickSelect<Link> quickSelect = new QuickSelect<>(new LinkTimestampComparatorDesc());
+
     @Override
     public  synchronized  Link[] getLinkList(String dbid, long id1, long link_type) throws Exception {
         Value dexvalue = new Value();
@@ -431,12 +447,26 @@ class DexLinkBenchDriverSingleton extends GraphStore {
             int n = links.size();
             Link[] arr = new Link[n];
             for(int i=0; i<n; i++) arr[i] = links.get(i);
-            System.out.println("get link list(1):" + arr.length);
+
+            if (n > 10000) {
+                Link pivot = quickSelect.select(arr, 10000);
+                Link[] all = arr;
+                arr = new Link[10000];
+
+                int j = 0;
+                for(int i=0; i<all.length; i++) {
+                  if (j >= 10000) break;
+                  if (all[i].time > pivot.time) arr[j++] = all[i];
+                }
+            }
+            Arrays.sort(arr, new LinkTimestampComparatorDesc());
+
+            if (arr.length > 1000) System.out.println("get link list(1):" + arr.length);
             iter.close();
             linksObjs.close();
             return arr;
         } else {
-            System.out.println("Getlinklist failed: " + id1);
+            System.out.println("Getlinklist failed: " + id1 + ", degree:" + countLinks(dbid, id1, link_type));
         }
         return new Link[0];
     }
@@ -462,14 +492,26 @@ class DexLinkBenchDriverSingleton extends GraphStore {
 
                     links.add(new Link(id1, link_type, head, VISIBILITY_DEFAULT, payload.getBytes(), version, timestamp));
                 }
-                if (links.size() == limit) break; // TODO -- not correct
             }
             iter.close();
             linksObjs.close();
             int n = links.size();
             Link[] arr = new Link[n];
             for(int i=0; i<n; i++) arr[i] = links.get(i);
-            System.out.println("get link list(2):" + arr.length);
+
+            if (n > limit) {
+                Link pivot = quickSelect.select(arr, limit);
+                Link[] all = arr;
+                arr = new Link[limit];
+                int j = 0;
+                for(int i=0; i<all.length; i++) {
+                    if (j >= limit) break;
+                    if (all[i].time > pivot.time) arr[j++] = all[i];
+                }
+            }
+            Arrays.sort(arr, new LinkTimestampComparatorDesc());
+
+            System.out.println("get link list(2):" + arr.length + "/" + n + " min:" + minTimestamp + " -- " + maxTimestamp);
             return arr;
         }
         return new Link[0];
@@ -563,4 +605,57 @@ class DexLinkBenchDriverSingleton extends GraphStore {
             return false;
         }
     }
+}
+
+
+
+ class QuickSelect<E> {
+     Comparator<E> comp;
+
+    public QuickSelect(Comparator<E> comp) {
+        this.comp = comp;
+    }
+
+    private  int partition(E[] arr, int left, int right, int pivot) {
+        E pivotVal = arr[pivot];
+        swap(arr, pivot, right);
+        int storeIndex = left;
+        for (int i = left; i < right; i++) {
+            if (comp.compare(arr[i], pivotVal) < 0) {
+                swap(arr, i, storeIndex);
+                storeIndex++;
+            }
+        }
+        swap(arr, right, storeIndex);
+        return storeIndex;
+    }
+
+    public E select(E[] arr, int n) {
+        int left = 0;
+        int right = arr.length - 1;
+        Random rand = new Random();
+        while (right > left) {
+            int pivotIndex = partition(arr, left, right, rand.nextInt(right - left + 1) + left);
+            if (pivotIndex - left == n) {
+                right = left = pivotIndex;
+            } else if (pivotIndex - left < n) {
+                n -= pivotIndex - left + 1;
+                left = pivotIndex + 1;
+            } else {
+                right = pivotIndex - 1;
+            }
+        }
+        return arr[left];
+    }
+
+    private static void swap(Object[] arr, int i1, int i2) {
+        if (i1 != i2) {
+            Object temp = arr[i1];
+            arr[i1] = arr[i2];
+            arr[i2] = temp;
+        }
+    }
+
+
+
 }
