@@ -54,6 +54,7 @@ public class TimerTest extends TestCase {
     }
     long endTime = System.nanoTime();
     System.err.println("took " + ((endTime - startTime) / 1000000) + "ms");
+    System.out.println(endTime - startTime);
     assertTrue(endTime - startTime >= 1e8);
     assertTrue(endTime - startTime < 1.02e8); // no longer than 102ms
   }
