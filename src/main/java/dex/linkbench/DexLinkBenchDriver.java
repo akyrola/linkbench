@@ -10,12 +10,13 @@ import com.sparsity.dex.gdb.Objects;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  *  Because of license reasons, singleton and one session only!
  */
-class DexLinkBenchDriver extends GraphStore {
-    static DexLinkBenchDriverSingleton singleton = new DexLinkBenchDriverSingleton();
+class DexLinkBenchDriverSingleton extends GraphStore {
+    static DexLinkBenchDriver singleton = new DexLinkBenchDriver();
 
     boolean debug = false;
 
@@ -113,18 +114,19 @@ class DexLinkBenchDriver extends GraphStore {
  */
 
 
-class DexLinkBenchDriverSingleton extends GraphStore {
+public class DexLinkBenchDriver extends GraphStore {
 
-    static Dex dex;
-    static DexConfig conf;
-    String dbfilename;
-    String dbname = "linkbench8";
+    static Dex dex = null;
+    static DexConfig conf = null;
+    static String dbfilename;
+    static String dbname = "linkbench8";
     static Database db;
     Session dex_session = null;
     Graph dex_graph = null;
 
-    public DexLinkBenchDriverSingleton() {
-        conf = new DexConfig();
+    static AtomicInteger sessionCounter = new AtomicInteger();
+
+    public DexLinkBenchDriver() {
     }
 
     private int edgeType(long fbtype) {
@@ -134,11 +136,18 @@ class DexLinkBenchDriverSingleton extends GraphStore {
 
     private static boolean initialized = false;
 
+    static {
+        conf = new DexConfig();
+        dex = new Dex(conf);
+    }
+
     @Override
-    public synchronized void initialize(Properties p, Phase currentPhase, int threadId) throws IOException, Exception {
+    public void initialize(Properties p, Phase currentPhase, int threadId) throws IOException, Exception {
+        this.currentPhase = currentPhase;
+
         synchronized (DexLinkBenchDriver.class){
-            this.currentPhase = currentPhase;
-            if (dex == null) dex = new Dex(conf);
+            System.out.println("Enter init:" + threadId);
+
 
             if (!initialized) {
                 try {
@@ -166,6 +175,8 @@ class DexLinkBenchDriverSingleton extends GraphStore {
 
         }
 
+        System.out.println("Finishing init:" + threadId);
+
         while(!initialized) {
             Thread.sleep(10);
         }
@@ -180,8 +191,8 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
 
-    public synchronized  boolean openDB(String dbname) {
-        dex = new Dex(conf);
+    public static synchronized  boolean openDB(String dbname) {
+
         try {
             System.out.println("OpenDB");
             dbfilename = dbname + ".dex";
@@ -194,14 +205,15 @@ class DexLinkBenchDriverSingleton extends GraphStore {
         return true;
     }
 
-    public  synchronized   boolean closeDB() {
+    public static synchronized   boolean closeDB() {
         try {
             System.out.println("CloseDB");
-            db.close();
-            db.delete();
-            dex.delete();
-            dex = null;
-            db = null;
+            if (db != null) {
+                db.close();
+                db.delete();
+                dex.delete();
+                db = null;
+            }
             return true;
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -212,8 +224,9 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     public  synchronized  boolean openTransaction() {
         try {
             System.out.println("openTransaction");
+            sessionCounter.incrementAndGet();
             dex_session = db.newSession();
-            dex_session.begin();
+        //    dex_session.begin();      // Use auto-commit
             dex_graph = dex_session.getGraph();
             return true;
         } catch (Exception e) {
@@ -225,12 +238,15 @@ class DexLinkBenchDriverSingleton extends GraphStore {
 
     public synchronized   boolean closeTransaction() {
         try {
-            System.out.println("closeTransaction");
+            System.out.println("closeTransaction: " + Thread.currentThread());
 
-            dex_session.commit();
+
+         //   dex_session.commit();
             dex_session.close();
             dex_session.delete();
             dex_session = null;
+
+            sessionCounter.decrementAndGet();
             return true;
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -312,7 +328,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     @Override
     public  synchronized  void close() {
         this.closeTransaction();
-        this.closeDB();
+        if (sessionCounter.get() == 0) closeDB();
     }
 
     @Override
@@ -321,7 +337,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
     @Override
-    public  synchronized  boolean addLink(String dbid, Link a, boolean noinverse) throws Exception {
+    public  boolean addLink(String dbid, Link a, boolean noinverse) throws Exception {
         Value dexvalue = new Value();
 
         if (a.id1 == a.id2) return false;
@@ -352,7 +368,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
         }
     }
 
-    public  synchronized   long getLinkId(long id1, long link_type, long id2) {
+    public long getLinkId(long id1, long link_type, long id2) {
         Value dexvalue = new Value();
 
         long nd1 = dex_graph.findObject(vid, dexvalue.setLong(id1));
@@ -364,7 +380,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
     @Override
-    public  synchronized   boolean deleteLink(String dbid, long id1, long link_type, long id2, boolean noinverse, boolean expunge) throws Exception {
+    public boolean deleteLink(String dbid, long id1, long link_type, long id2, boolean noinverse, boolean expunge) throws Exception {
         long e = getLinkId(id1, link_type, id2);
         if (e != Objects.InvalidOID) {
             dex_graph.drop(e);
@@ -375,7 +391,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
     @Override
-    public  synchronized  boolean updateLink(String dbid, Link a, boolean noinverse) throws Exception {
+    public boolean updateLink(String dbid, Link a, boolean noinverse) throws Exception {
         Value dexvalue = new Value();
 
         long nd1 = dex_graph.findObject(vid, dexvalue.setLong(a.id1));
@@ -399,7 +415,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
     @Override
-    public  synchronized  Link getLink(String dbid, long id1, long link_type, long id2) throws Exception {
+    public Link getLink(String dbid, long id1, long link_type, long id2) throws Exception {
         long e = getLinkId(id1, link_type, id2);
         if (e != Objects.InvalidOID) {
             int etype = edgeType(link_type);
@@ -428,7 +444,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     private QuickSelect<Link> quickSelect = new QuickSelect<>(new LinkTimestampComparatorDesc());
 
     @Override
-    public  synchronized  Link[] getLinkList(String dbid, long id1, long link_type) throws Exception {
+    public Link[] getLinkList(String dbid, long id1, long link_type) throws Exception {
         Value dexvalue = new Value();
         long etype = edgeType(link_type);
         long nd1 = dex_graph.findObject(vid, dexvalue.setLong(id1));
@@ -455,8 +471,8 @@ class DexLinkBenchDriverSingleton extends GraphStore {
 
                 int j = 0;
                 for(int i=0; i<all.length; i++) {
-                  if (j >= 10000) break;
-                  if (all[i].time > pivot.time) arr[j++] = all[i];
+                    if (j >= 10000) break;
+                    if (all[i].time > pivot.time) arr[j++] = all[i];
                 }
             }
             Arrays.sort(arr, new LinkTimestampComparatorDesc());
@@ -472,7 +488,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
     @Override
-    public synchronized   Link[] getLinkList(String dbid, long id1, long link_type, long minTimestamp, long maxTimestamp, int offset, int limit) throws Exception {
+    public Link[] getLinkList(String dbid, long id1, long link_type, long minTimestamp, long maxTimestamp, int offset, int limit) throws Exception {
         Value dexvalue = new Value();
         long etype = edgeType(link_type);
         long nd1 = dex_graph.findObject(vid, dexvalue.setLong(id1));
@@ -518,7 +534,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
     @Override
-    public synchronized   long countLinks(String dbid, long id1, long link_type) throws Exception {
+    public long countLinks(String dbid, long id1, long link_type) throws Exception {
         Value dexvalue = new Value();
 
         long nd1 = dex_graph.findObject(vid, dexvalue.setLong(id1));
@@ -530,12 +546,12 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
     @Override
-    public  synchronized  void resetNodeStore(String dbid, long startID) throws Exception {
+    public void resetNodeStore(String dbid, long startID) throws Exception {
 
     }
 
     @Override
-    public  synchronized  long addNode(String dbid, Node node) throws Exception {
+    public  long addNode(String dbid, Node node) throws Exception {
         if (dex_graph == null) {
             System.err.println("dex_graph null!");
             System.exit(1);
@@ -563,7 +579,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
     @Override
-    public  synchronized  Node getNode(String dbid, int type, long id) throws Exception {
+    public Node getNode(String dbid, int type, long id) throws Exception {
         Value dexvalue = new Value();
         long nd1 = dex_graph.findObject(vid, dexvalue.setLong(id));
 
@@ -579,7 +595,7 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
     @Override
-    public  synchronized  boolean updateNode(String dbid, Node node) throws Exception {
+    public boolean updateNode(String dbid, Node node) throws Exception {
         Value dexvalue = new Value();
 
         long nd = dex_graph.findObject(vid, dexvalue.setLong(node.id));
@@ -595,11 +611,13 @@ class DexLinkBenchDriverSingleton extends GraphStore {
     }
 
     @Override
-    public  synchronized  boolean deleteNode(String dbid, int type, long id) throws Exception {
+    public boolean deleteNode(String dbid, int type, long id) throws Exception {
         Value dexvalue = new Value();
         long nd1 = dex_graph.findObject(vid, dexvalue.setLong(id));
         if (nd1 != Objects.InvalidOID) {
-            dex_graph.drop(nd1);
+            // Do not actually do anything as this would delete also edges of the node, which Facebook's own implementation
+            // does not do.
+            // dex_graph.drop(nd1);
             return true;
         } else {
             return false;
@@ -609,8 +627,8 @@ class DexLinkBenchDriverSingleton extends GraphStore {
 
 
 
- class QuickSelect<E> {
-     Comparator<E> comp;
+class QuickSelect<E> {
+    Comparator<E> comp;
 
     public QuickSelect(Comparator<E> comp) {
         this.comp = comp;
