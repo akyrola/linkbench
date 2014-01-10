@@ -124,6 +124,9 @@ public class DexLinkBenchDriver extends GraphStore {
     Session dex_session = null;
     Graph dex_graph = null;
 
+
+    long startTime;
+
     static AtomicInteger sessionCounter = new AtomicInteger();
 
     public DexLinkBenchDriver() {
@@ -225,7 +228,8 @@ public class DexLinkBenchDriver extends GraphStore {
             System.out.println("openTransaction");
             sessionCounter.incrementAndGet();
             dex_session = db.newSession();
-        //    dex_session.begin();      // Use auto-commit
+            if (currentPhase == Phase.LOAD)   dex_session.begin();      // Use auto-commit in request phase
+            startTime = System.currentTimeMillis();
             dex_graph = dex_session.getGraph();
             return true;
         } catch (Exception e) {
@@ -240,7 +244,7 @@ public class DexLinkBenchDriver extends GraphStore {
             System.out.println("closeTransaction: " + Thread.currentThread());
 
 
-         //   dex_session.commit();
+            if (currentPhase == Phase.LOAD)     dex_session.commit();
             dex_session.close();
             dex_session.delete();
             dex_session = null;
@@ -570,7 +574,7 @@ public class DexLinkBenchDriver extends GraphStore {
             dex_graph.setAttribute(nd, col_timestamp, dexvalue.setInteger(node.time));
             dex_graph.setAttribute(nd, col_vertex_payload, dexvalue.setString(new String(node.data, 0, node.data.length > 2047 ? 2047 : node.data.length)));
 
-            if(node.id % 100000 == 0) System.out.println(" Node: " + node.id + " / " + nd);
+            if(node.id % 100000 == 0) System.out.println(" Nodes," + node.id + "," + (System.currentTimeMillis() - startTime)*0.001 + "s" + "," + (node.id/((System.currentTimeMillis() - startTime)*0.001)) + " edges/sec");
         } else {
             updateNode(dbid, node);
         }
