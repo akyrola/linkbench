@@ -147,8 +147,6 @@ public class DexLinkBenchDriver extends GraphStore {
 
         synchronized (DexLinkBenchDriver.class){
             System.out.println("Enter init:" + threadId);
-
-
             if (!initialized) {
                 try {
                     if (currentPhase == Phase.LOAD) {
@@ -156,7 +154,6 @@ public class DexLinkBenchDriver extends GraphStore {
                         dbfilename = dbname + ".dex";
                         db = dex.create(dbfilename, dbname);
                         this.defineSchema();
-                        this.closeDB();
                         System.err.println(new File(dbfilename).getAbsolutePath());
 
                         System.err.println("Successfully created database " + Thread.currentThread());
@@ -194,9 +191,11 @@ public class DexLinkBenchDriver extends GraphStore {
     public static synchronized  boolean openDB(String dbname) {
 
         try {
-            System.out.println("OpenDB");
+            System.out.println("OpenDB: " + dbname);
             dbfilename = dbname + ".dex";
             db = dex.open(dbfilename, false);
+
+            System.out.println("Opened: " + db + "; " + dbfilename);
 
         } catch (Exception e) {
             System.out.println(e.getMessage());
