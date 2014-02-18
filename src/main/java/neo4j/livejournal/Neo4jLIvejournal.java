@@ -95,6 +95,7 @@ public class Neo4jLivejournal {
         } finally {
             tr.close();
         }
+	System.exit(0);
     }
 
 
