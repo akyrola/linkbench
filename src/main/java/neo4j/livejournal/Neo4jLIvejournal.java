@@ -212,10 +212,10 @@ public class Neo4jLIvejournal {
         if (args[0].equals("insert")) {
             insertData();
         } else if (args[0].equals("shortestpath")) {
-            Neo4jLivejournal bench = new Neo4jLivejournal();
+            Neo4jLIvejournal bench = new Neo4jLIvejournal();
             bench.runShortestPath(Integer.parseInt(args[1]));
         } else if (args[0].equals("fof")) {
-            Neo4jLivejournal bench = new Neo4jLivejournal();
+            Neo4jLIvejournal bench = new Neo4jLIvejournal();
             bench.runFof(Integer.parseInt(args[1]));
         }
 
