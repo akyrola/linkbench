@@ -24,8 +24,9 @@ public class Neo4jTwitter {
     static int maxVertexId = 40000000;
 
     public Neo4jTwitter() {
-        graphDb = new GraphDatabaseFactory().newEmbeddedDatabase( DB_PATH );
-
+        graphDb = new GraphDatabaseFactory()
+                .newEmbeddedDatabaseBuilder( DB_PATH )
+                .loadPropertiesFromFile( "/Users/akyrola/bin/neo4j-enterprise-2.0.0/conf/" + "neo4j.properties" ).newGraphDatabase();
         registerShutdownHook(graphDb);
     }
 
