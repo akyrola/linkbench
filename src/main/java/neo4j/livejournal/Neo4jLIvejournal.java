@@ -206,6 +206,7 @@ public class Neo4jLIvejournal {
 
         System.out.println("Shutting down inserter");
         inserter.shutdown();
+        System.exit(0);
     }
 
     public static void main(String[] args) throws Exception {
