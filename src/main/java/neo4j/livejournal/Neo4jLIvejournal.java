@@ -1,6 +1,7 @@
 package neo4j.livejournal;
 
-import com.facebook.LinkBench.Phase;
+import org.neo4j.graphalgo.GraphAlgoFactory;
+import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
 import org.neo4j.kernel.impl.util.FileUtils;
@@ -11,17 +12,20 @@ import java.io.*;
 import java.net.InetAddress;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 
 /**
  * @author Aapo Kyrola
  */
-public class Neo4jLivejournal {
+public class Neo4jLIvejournal {
     private static final String DB_PATH = "/Users/akyrola/bin/neo4j-enterprise-2.0.0/data/graph.db_livejournal/";
     GraphDatabaseService graphDb;
     static int maxVertexId = 4600000;
 
-    public Neo4jLivejournal() {
+    public Neo4jLIvejournal() {
         graphDb = new GraphDatabaseFactory().newEmbeddedDatabase( DB_PATH );
 
         registerShutdownHook(graphDb);
@@ -48,6 +52,41 @@ public class Neo4jLivejournal {
     }
 
 
+    public void runShortestPath(int n) throws Exception {
+        long stTime = System.currentTimeMillis();
+        Transaction tr = graphDb.beginTx();
+
+        PathFinder<Path> finder = GraphAlgoFactory.shortestPath(
+                PathExpanders.forTypeAndDirection(RelTypes.FOLLOWS, Direction.OUTGOING), 5);
+        try {
+            Random r = new Random(260379);
+            for(int i=0; i < n; i++) {
+                try {
+                    long st = System.nanoTime();
+                    long from =  Math.abs(r.nextLong() % 4500000) + 1;
+                    long to =  Math.abs(r.nextLong() % 4500000) + 1;
+                    Iterable<Path> paths = finder.findAllPaths(graphDb.getNodeById(from), graphDb.getNodeById(to));
+                    Iterator<Path> it = paths.iterator();
+
+                    if (it.hasNext()) {
+                        Path path = it.next();
+                        long tt = System.nanoTime() - st;
+                        System.out.println(from + "," + to + "," + path.length() + " : " + tt*0.001 + " micros");
+                    } else {
+                        long tt = System.nanoTime() - st;
+
+                        System.out.println(from + "," + to + "," + (-1) + " : " + tt*0.001 + " micros");
+                    }
+                } catch (Exception err) {
+                   err.printStackTrace();
+                }
+            }
+        } finally {
+            tr.close();
+        }
+        System.out.println("Total time " + (System.currentTimeMillis() - stTime) + " ms for " + n + " queries");
+    }
+
     public void runFof(int n) throws IOException {
         Transaction tr = graphDb.beginTx();
         try {
@@ -55,15 +94,16 @@ public class Neo4jLivejournal {
             long t = System.currentTimeMillis();
 
             SimpleDateFormat sdf = new SimpleDateFormat("YYYYMMDD_HHmmss");
-            String id = InetAddress.getLocalHost().getHostName().substring(0,8)  + "_NEO4J_" + sdf.format(new Date());
+            String id = InetAddress.getLocalHost().getHostName().substring(0,8)  + "_NEO4J_" + sdf.format(new Date()) + "_" + n;
 
 
             BufferedWriter brw = new BufferedWriter(new FileWriter("/Users/akyrola/Projects/GraphCHI/GraphChi-DB/graphchiDB-java/livejournal_" + id + "_fof_limit200.txt"));
             Random r = new Random(260379);
-            for(int i=1; i < n; i++) {
+            for(int i=0; i < n; i++) {
+                try {
                 long v = Math.abs(r.nextLong() % 4500000) + 1;
 
-                BitSet fofs = new BitSet(maxVertexId + 1);
+                final BitSet fofs = new BitSet(maxVertexId + 1);
 
                 long st = System.nanoTime();
 
@@ -71,7 +111,6 @@ public class Neo4jLivejournal {
 
                 Iterator<Relationship> friends = nd.getRelationships(RelTypes.FOLLOWS, Direction.OUTGOING).iterator();
 
-                // Cut to 200
                 int j = 0;
                 while(friends.hasNext() && j < 200) {
                     j++;
@@ -81,16 +120,22 @@ public class Neo4jLivejournal {
                         fofs.set((int)fofIter.next().getEndNode().getId());
                     }
                 }
+
+
                 long tt = System.nanoTime() - st;
                 int cnt = fofs.cardinality();
                 if (cnt > 0) {
-                     brw.write(cnt + "\t" + tt * 0.001 + "\n");
+                    brw.write(cnt + "," + tt * 0.001 + "," + v + "\n");
                 }
                 if (i % 1000 == 0) {
                     System.out.println((System.currentTimeMillis() - t) + "ms -- fof " + i + " / " + v + " --> " + cnt);
                 }
-
+                } catch (Exception err) {
+                     err.printStackTrace();
+                }
             }
+
+
             brw.close();
         } finally {
             tr.close();
@@ -162,17 +207,20 @@ public class Neo4jLivejournal {
 
         System.out.println("Shutting down inserter");
         inserter.shutdown();
+        System.exit(0);
     }
 
     public static void main(String[] args) throws Exception {
         if (args[0].equals("insert")) {
             insertData();
         } else if (args[0].equals("shortestpath")) {
-
+            Neo4jLIvejournal bench = new Neo4jLIvejournal();
+            bench.runShortestPath(Integer.parseInt(args[1]));
         } else if (args[0].equals("fof")) {
-            Neo4jLivejournal bench = new Neo4jLivejournal();
+            Neo4jLIvejournal bench = new Neo4jLIvejournal();
             bench.runFof(Integer.parseInt(args[1]));
         }
+
 
     }
 
