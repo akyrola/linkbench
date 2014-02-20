@@ -96,7 +96,7 @@ public class Neo4jTwitter {
             String id = InetAddress.getLocalHost().getHostName().substring(0,8)  + "_NEO4J_" + sdf.format(new Date()) + "_" + n;
 
 
-            BufferedWriter brw = new BufferedWriter(new FileWriter("/Users/akyrola/Projects/GraphCHI/GraphChi-DB/graphchiDB-java/livejournal_" + id + "_fof_limit200.txt"));
+            BufferedWriter brw = new BufferedWriter(new FileWriter("/Users/akyrola/Projects/GraphCHI/GraphChi-DB/graphchiDB-java/twitter_" + id + "_fof_limit200.txt"));
             Random r = new Random(260379);
             for(int i=0; i < n; i++) {
                 try {
