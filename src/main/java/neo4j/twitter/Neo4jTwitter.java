@@ -1,6 +1,5 @@
 package neo4j.twitter;
 
-import com.facebook.LinkBench.Phase;
 import org.neo4j.graphalgo.GraphAlgoFactory;
 import org.neo4j.graphalgo.PathFinder;
 import org.neo4j.graphdb.*;
