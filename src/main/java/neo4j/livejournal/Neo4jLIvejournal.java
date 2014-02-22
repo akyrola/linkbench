@@ -56,6 +56,13 @@ public class Neo4jLIvejournal {
         long stTime = System.currentTimeMillis();
         Transaction tr = graphDb.beginTx();
 
+        SimpleDateFormat sdf = new SimpleDateFormat("YYYYMMDD_HHmmss");
+        String id = InetAddress.getLocalHost().getHostName().substring(0,8)  + "_NEO4J_" + sdf.format(new Date()) + "_" + n;
+
+
+        BufferedWriter brw = new BufferedWriter(new FileWriter("/Users/akyrola/Projects/GraphCHI/GraphChi-DB/graphchiDB-java/livejournal_" + id + "_shortest.txt"));
+
+
         PathFinder<Path> finder = GraphAlgoFactory.shortestPath(
                 PathExpanders.forTypeAndDirection(RelTypes.FOLLOWS, Direction.OUTGOING), 5);
         try {
@@ -68,15 +75,20 @@ public class Neo4jLIvejournal {
                     Iterable<Path> paths = finder.findAllPaths(graphDb.getNodeById(from), graphDb.getNodeById(to));
                     Iterator<Path> it = paths.iterator();
 
+                    int length = (-1);
+                    long tt;
                     if (it.hasNext()) {
                         Path path = it.next();
-                        long tt = System.nanoTime() - st;
+                        tt = System.nanoTime() - st;
                         System.out.println(from + "," + to + "," + path.length() + " : " + tt*0.001 + " micros");
+                        length = path.length();
                     } else {
-                        long tt = System.nanoTime() - st;
+                        tt = System.nanoTime() - st;
 
                         System.out.println(from + "," + to + "," + (-1) + " : " + tt*0.001 + " micros");
                     }
+                    brw.write(length + "," + (tt * 0.001) + "\n");
+                    brw.flush();
                 } catch (Exception err) {
                    err.printStackTrace();
                 }
