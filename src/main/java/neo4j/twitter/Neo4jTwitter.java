@@ -55,6 +55,13 @@ public class Neo4jTwitter {
         long stTime = System.currentTimeMillis();
         Transaction tr = graphDb.beginTx();
 
+        SimpleDateFormat sdf = new SimpleDateFormat("YYYYMMDD_HHmmss");
+        String id = InetAddress.getLocalHost().getHostName().substring(0,8)  + "_NEO4J_" + sdf.format(new Date()) + "_" + n;
+
+
+        BufferedWriter brw = new BufferedWriter(new FileWriter("/Users/akyrola/Projects/GraphCHI/GraphChi-DB/graphchiDB-java/twitter_" + id + "_shortest.txt"));
+
+
         PathFinder<Path> finder = GraphAlgoFactory.shortestPath(
                 PathExpanders.forTypeAndDirection(RelTypes.FOLLOWS, Direction.OUTGOING), 5);
         try {
@@ -62,20 +69,25 @@ public class Neo4jTwitter {
             for(int i=0; i < n; i++) {
                 try {
                     long st = System.nanoTime();
-                    long from =  Math.abs(r.nextLong() % 4500000) + 1;
-                    long to =  Math.abs(r.nextLong() % 4500000) + 1;
+                    long from =  Math.abs(r.nextLong() % 40000000) + 1;
+                    long to =  Math.abs(r.nextLong() % 40000000) + 1;
                     Iterable<Path> paths = finder.findAllPaths(graphDb.getNodeById(from), graphDb.getNodeById(to));
                     Iterator<Path> it = paths.iterator();
 
+                    int length = (-1);
+                    long tt;
                     if (it.hasNext()) {
                         Path path = it.next();
-                        long tt = System.nanoTime() - st;
+                        tt = System.nanoTime() - st;
                         System.out.println(from + "," + to + "," + path.length() + " : " + tt*0.001 + " micros");
+                        length = path.length();
                     } else {
-                        long tt = System.nanoTime() - st;
+                        tt = System.nanoTime() - st;
 
                         System.out.println(from + "," + to + "," + (-1) + " : " + tt*0.001 + " micros");
                     }
+                    brw.write(length + "," + (tt * 0.001) + "\n");
+                    brw.flush();
                 } catch (Exception err) {
                     err.printStackTrace();
                 }
@@ -85,7 +97,6 @@ public class Neo4jTwitter {
         }
         System.out.println("Total time " + (System.currentTimeMillis() - stTime) + " ms for " + n + " queries");
     }
-
     public void runFof(int n) throws IOException {
         Transaction tr = graphDb.beginTx();
         try {
