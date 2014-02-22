@@ -98,10 +98,11 @@ public class Neo4jTwitter {
 
 
             BufferedWriter brw = new BufferedWriter(new FileWriter("/Users/akyrola/Projects/GraphCHI/GraphChi-DB/graphchiDB-java/twitter_" + id + "_fof_limit200.txt"));
+            brw.write("count,micros\n");
             Random r = new Random(260379);
             for(int i=0; i < n; i++) {
                 try {
-                    long v = Math.abs(r.nextLong() % 4500000) + 1;
+                    long v = Math.abs(r.nextLong() % 40000000) + 1;
 
                     final BitSet fofs = new BitSet(maxVertexId + 1);
 
@@ -125,9 +126,10 @@ public class Neo4jTwitter {
                     long tt = System.nanoTime() - st;
                     int cnt = fofs.cardinality();
                     if (cnt > 0) {
-                        brw.write(cnt + "," + tt * 0.001 + "," + v + "\n");
+                        brw.write(cnt + "," + tt * 0.001 + "\n");
                     }
-                    if (i % 1000 == 0) {
+                    if (i % 100 == 0) {
+                        brw.flush();
                         System.out.println((System.currentTimeMillis() - t) + "ms -- fof " + i + " / " + v + " --> " + cnt);
                     }
                 } catch (Exception err) {
