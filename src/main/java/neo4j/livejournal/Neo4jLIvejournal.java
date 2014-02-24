@@ -97,6 +97,8 @@ public class Neo4jLIvejournal {
             tr.close();
         }
         System.out.println("Total time " + (System.currentTimeMillis() - stTime) + " ms for " + n + " queries");
+            System.exit(0);
+
     }
 
     public void runFof(int n) throws IOException {
