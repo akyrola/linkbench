@@ -59,11 +59,11 @@ public class Neo4jTwitter {
         String id = InetAddress.getLocalHost().getHostName().substring(0,8)  + "_NEO4J_" + sdf.format(new Date()) + "_" + n;
 
 
-        BufferedWriter brw = new BufferedWriter(new FileWriter("/Users/akyrola/Projects/GraphCHI/GraphChi-DB/graphchiDB-java/twitter_" + id + "_shortest_limit3.txt"));
+        BufferedWriter brw = new BufferedWriter(new FileWriter("/Users/akyrola/Projects/GraphCHI/GraphChi-DB/graphchiDB-java/twitter_" + id + "_shortest_limit5.txt"));
 
 
         PathFinder<Path> finder = GraphAlgoFactory.shortestPath(
-                PathExpanders.forTypeAndDirection(RelTypes.FOLLOWS, Direction.OUTGOING), 3);
+                PathExpanders.forTypeAndDirection(RelTypes.FOLLOWS, Direction.OUTGOING), 5);
         try {
             Random r = new Random(260379);
             for(int i=0; i < n; i++) {
